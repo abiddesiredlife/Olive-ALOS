@@ -1,0 +1,36 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Olive OS - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Olive OS - Live Dashboard</h1>
+
+    <div class="controls">
+        <label><input type="radio" name="viewType" value="customer" checked> Customer Wise</label>
+        <label><input type="radio" name="viewType" value="region"> Region Wise</label>
+
+        <select id="dropdown">
+            <option>Select Name</option>
+        </select>
+
+        <button onclick="loadData()">Get Data</button>
+    </div>
+
+    <div class="results">
+        <h2>Results</h2>
+        <p>Total Invoice Value: ₹<span id="totalSales">0</span></p>
+        <p>Total Outstanding: ₹<span id="totalOutstanding">0</span></p>
+        <p>Outstanding 90+ Days: ₹<span id="os90" class="danger">0</span></p>
+        <p>Outstanding 60–90 Days: ₹<span id="os60to90">0</span></p>
+        <p>Outstanding 0–60 Days: ₹<span id="os0to60">0</span></p>
+        <p>DSO: <span id="dso">0</span> Days</p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
