@@ -1,142 +1,115 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Olive OS – Live Dashboard</title>
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #f9f9f9;
-      margin: 0;
-      padding: 20px;
-      color: #333;
-    }
-    h1 {
-      text-align: center;
-      color: #2a7a2e;
-    }
-    .container {
-      max-width: 600px;
-      margin: auto;
-      background: #fff;
-      padding: 25px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    .checkbox-group {
-      display: flex;
-      justify-content: space-around;
-      margin-bottom: 20px;
-    }
-    .dropdown {
-      margin-bottom: 15px;
-    }
-    .dropdown input {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-    }
-    .buttons {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 20px;
-    }
-    .buttons button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    .show-btn {
-      background-color: #2a7a2e;
-      color: white;
-    }
-    .clear-btn {
-      background-color: #ccc;
-      color: black;
-    }
-    .result {
-      margin-top: 15px;
-      padding: 10px;
-      background: #f1f1f1;
-      border-radius: 5px;
-    }
-    .result h3 {
-      margin: 10px 0;
-    }
-    .red {
-      color: red;
-      font-weight: bold;
-    }
+    body { font-family: Arial, sans-serif; background: #f0f4f7; padding: 20px; }
+    .box { max-width: 600px; margin: auto; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+    h1 { text-align: center; color: #2e7d32; }
+    label { font-weight: bold; margin-right: 20px; }
+    input[type="text"] { width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; }
+    .buttons { display: flex; justify-content: space-between; }
+    button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .show { background: #2e7d32; color: white; }
+    .clear { background: #ccc; color: black; }
+    .result { margin-top: 20px; background: #e0f2f1; padding: 15px; border-radius: 8px; }
+    .result p { margin: 8px 0; }
+    .result .highlight { font-weight: bold; color: darkred; }
+    ul.suggestions { border: 1px solid #ccc; border-radius: 6px; max-height: 150px; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+    ul.suggestions li { padding: 8px; cursor: pointer; }
+    ul.suggestions li:hover { background: #f0f0f0; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Olive OS – Live Dashboard</h1><div class="checkbox-group">
-  <label><input type="radio" name="filterType" value="customer"> Customer Wise</label>
-  <label><input type="radio" name="filterType" value="region"> Region Wise</label>
-</div>
 
-<div class="dropdown">
-  <input list="options" id="selection" placeholder="Start typing to select...">
-  <datalist id="options"></datalist>
-</div>
+  <div class="box">
+    <h1>Olive OS – Live Dashboard</h1>
+    
+    <div>
+      <label><input type="radio" name="view" value="customer" checked> Customer Wise</label>
+      <label><input type="radio" name="view" value="region"> Region Wise</label>
+    </div>
 
-<div class="buttons">
-  <button class="show-btn" onclick="showResults()">Show</button>
-  <button class="clear-btn" onclick="clearFields()">Clear</button>
-</div>
+    <input type="text" id="searchInput" placeholder="Type to search..." autocomplete="off"/>
+    <ul class="suggestions" id="suggestionsList"></ul>
 
-<div class="result" id="results"></div>
+    <div class="buttons">
+      <button class="show" onclick="showData()">Show</button>
+      <button class="clear" onclick="clearAll()">Clear</button>
+    </div>
 
-  </div>  <script>
-    const sampleData = {
-      customer: ['KKC Pharma', 'Green Poultry', 'FarmX', 'Avian Care'],
-      region: ['RM Hyderabad', 'Hyderabad', 'Karimnagar', 'Tanuku', 'Vijayawada']
-    };
+    <div class="result" id="result" style="display:none;"></div>
+  </div>
 
-    document.querySelectorAll('input[name="filterType"]').forEach(el => {
-      el.addEventListener('change', populateOptions);
+  <script>
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-vRAdDwX9qitwUOes0kHJDH7s1Xi35zEnjtNxvaAP2nz4vtYW3w35GFkaYN9uWg/pub?output=csv';
+    let DATA = [];
+
+    // Fetch CSV & store as objects
+    fetch(SHEET_URL).then(r => r.text()).then(text => {
+      const lines = text.trim().split('\\n');
+      const headers = lines[0].split(',');
+      DATA = lines.slice(1).map(r => {
+        const cols = r.split(',');
+        return {
+          customer: cols[1]?.trim(),
+          region: cols[2]?.trim(),
+          invoice: parseFloat(cols[6]) || 0,
+          pending: parseFloat(cols[7]) || 0,
+          days: parseInt(cols[5]) || 0
+        };
+      });
     });
 
-    function populateOptions() {
-      const type = document.querySelector('input[name="filterType"]:checked').value;
-      const datalist = document.getElementById('options');
-      datalist.innerHTML = '';
-      sampleData[type].forEach(item => {
-        const option = document.createElement('option');
-        option.value = item;
-        datalist.appendChild(option);
+    const input = document.getElementById('searchInput');
+    const list = document.getElementById('suggestionsList');
+
+    input.addEventListener('input', () => {
+      const view = document.querySelector('input[name="view"]:checked').value;
+      const term = input.value.toLowerCase();
+      const items = [...new Set(DATA.map(d => d[view]))].filter(v => v.toLowerCase().startsWith(term));
+      list.innerHTML = items.map(v => `<li onclick="selectIt('${v.replace(/'/g,"\\'")}')">${v}</li>`).join('');
+    });
+
+    function selectIt(v) {
+      input.value = v;
+      list.innerHTML = '';
+    }
+
+    input.onblur = () => setTimeout(() => list.innerHTML = '', 200);
+
+    function showData() {
+      const view = document.querySelector('input[name="view"]:checked').value;
+      const sel = input.value.trim();
+      const records = DATA.filter(d => d[view] === sel);
+      if (!sel || records.length === 0) { alert('Choose a valid ' + view); return; }
+
+      let sales=0, outstanding=0, os90=0, os60=0;
+      records.forEach(r => {
+        sales += r.invoice;
+        outstanding += r.pending;
+        if (r.days > 90) os90 += r.pending;
+        else if (r.days > 60) os60 += r.pending;
       });
-    }
+      const dso = sales ? Math.round((outstanding/sales)*365) : 0;
 
-    function showResults() {
-      const selection = document.getElementById('selection').value;
-      const filterType = document.querySelector('input[name="filterType"]:checked')?.value;
-
-      if (!filterType || !selection) {
-        alert('Please select filter type and name.');
-        return;
-      }
-
-      // Simulated data output (replace with real fetch)
-      const html = `
-        <h3>Total Sale Value: ₹2,30,000</h3>
-        <h3>Total Outstanding: ₹85,000</h3>
-        <h3 class="red">90+ Days Outstanding: ₹15,000</h3>
-        <h3>60–90 Days Outstanding: ₹20,000</h3>
-        <h3>DSO: 135 Days</h3>
+      document.getElementById('result').style.display = 'block';
+      document.getElementById('result').innerHTML = `
+        <p><strong>Total Sale Value:</strong> ₹${sales.toLocaleString()}</p>
+        <p><strong>Total Outstanding:</strong> ₹${outstanding.toLocaleString()}</p>
+        <p class="highlight"><strong>90+ Days Outstanding:</strong> ₹${os90.toLocaleString()}</p>
+        <p><strong>60–90 Days Outstanding:</strong> ₹${os60.toLocaleString()}</p>
+        <p><strong>DSO:</strong> ${dso} Days</p>
       `;
-      document.getElementById('results').innerHTML = html;
     }
 
-    function clearFields() {
-      document.getElementById('selection').value = '';
-      document.getElementById('results').innerHTML = '';
-      document.getElementById('options').innerHTML = '';
-      document.querySelectorAll('input[name="filterType"]').forEach(el => el.checked = false);
+    function clearAll() {
+      input.value = '';
+      document.getElementById('result').style.display = 'none';
     }
-  </script></body>
+  </script>
+
+</body>
 </html>
