@@ -1,138 +1,146 @@
 <!DOCTYPE html><html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Olive OS - Live Dashboard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Olive OS – Live Dashboard</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f5f5f5;
-      color: #333;
+      background-color: #f8f9fa;
       padding: 20px;
+      color: #333;
     }
     h1 {
-      color: #2c3e50;
-      text-align: center;
+      color: #2a7d2e;
     }
-    .filter-section, .result-section {
-      background: #ffffff;
-      border-radius: 10px;
-      padding: 20px;
-      margin: 20px auto;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    .container {
       max-width: 700px;
+      margin: auto;
+      background: #fff;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
     }
-    .checkboxes label {
-      display: inline-block;
-      margin-right: 20px;
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    input[type="checkbox"] {
+      margin-right: 10px;
     }
     select {
       width: 100%;
-      padding: 8px;
-      margin: 10px 0;
-      border-radius: 5px;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 6px;
       border: 1px solid #ccc;
     }
-    .metrics div {
+    .metrics {
+      margin-top: 25px;
+    }
+    .metric {
+      background: #f1f1f1;
+      padding: 15px;
       margin-bottom: 10px;
-      font-size: 18px;
+      border-radius: 8px;
+      font-size: 16px;
     }
-    .highlight {
-      font-weight: bold;
-    }
-    .danger {
+    .red {
       color: darkred;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h1>Olive OS - Live Dashboard</h1>
-  <div class="filter-section">
-    <div class="checkboxes">
-      <label><input type="radio" name="filter" value="customer" checked> Customer Wise</label>
-      <label><input type="radio" name="filter" value="region"> Region Wise</label>
-    </div>
-    <div>
-      <label for="dropdown">Select:</label>
-      <select id="dropdown"></select>
-    </div>
-  </div>  <div class="result-section">
-    <div class="metrics">
-      <div>Total Sales: ₹<span id="totalSales">0</span></div>
-      <div>Total Outstanding: ₹<span id="totalOS">0</span></div>
-      <div class="danger">90+ Days Outstanding: ₹<span id="os90">0</span></div>
-      <div>60-90 Days Outstanding: ₹<span id="os6090">0</span></div>
-      <div>DSO: <span id="dso">0</span> days</div>
-    </div>
+  <div class="container">
+    <h1>Olive OS – Live Dashboard</h1><label>
+  <input type="checkbox" id="customerWise"> Customer Wise
+</label>
+<label>
+  <input type="checkbox" id="regionWise"> Region Wise
+</label>
+
+<label for="selectionDropdown">Select Name</label>
+<select id="selectionDropdown"></select>
+
+<div class="metrics">
+  <div class="metric" id="totalSales">Total Sales Value: ₹0</div>
+  <div class="metric" id="totalOutstanding">Total Outstanding: ₹0</div>
+  <div class="metric red" id="os90">90+ Days Outstanding: ₹0</div>
+  <div class="metric" id="os60to90">60–90 Days Outstanding: ₹0</div>
+  <div class="metric" id="dso">DSO: 0 days</div>
+</div>
+
   </div>  <script>
-    const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-vRAdDwX9qitwUOes0kHJDH7s1Xi35zEnjtNxvaAP2nz4vtYW3w35GFkaYN9uWg/pub?output=csv";
+    const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-vRAdDwX9qitwUOes0kHJDH7s1Xi35zEnjtNxvaAP2nz4vtYW3w35GFkaYN9uWg/pub?output=csv";
+
+    const customerWiseCheckbox = document.getElementById("customerWise");
+    const regionWiseCheckbox = document.getElementById("regionWise");
+    const dropdown = document.getElementById("selectionDropdown");
+
     let data = [];
 
-    function fetchData() {
-      fetch(sheetURL)
+    function fetchCSV() {
+      fetch(SHEET_URL)
         .then(res => res.text())
         .then(csv => {
-          const lines = csv.split('\n').map(row => row.split(','));
-          const headers = lines[0];
-          data = lines.slice(1);
-          setupDropdown(headers);
+          const lines = csv.split("\n").slice(1);
+          data = lines.map(row => {
+            const cols = row.split(",");
+            return {
+              name: cols[1]?.trim(),
+              region: cols[2]?.trim(),
+              invoiceValue: parseFloat(cols[6]) || 0,
+              pendingAmount: parseFloat(cols[7]) || 0,
+              days: parseInt(cols[5]) || 0
+            }
+          });
+          updateDropdown();
         });
     }
 
-    function setupDropdown(headers) {
-      const dropdown = document.getElementById("dropdown");
-      dropdown.innerHTML = '';
-      const filterType = document.querySelector("input[name='filter']:checked").value;
-      const keyIndex = filterType === "region" ? headers.indexOf("Place") : headers.indexOf("Name of the customer");
-      const options = [...new Set(data.map(row => row[keyIndex]?.trim()).filter(Boolean))];
-      options.forEach(opt => {
+    function updateDropdown() {
+      dropdown.innerHTML = "";
+      const selectedType = customerWiseCheckbox.checked ? "name" : regionWiseCheckbox.checked ? "region" : null;
+      if (!selectedType) return;
+      const values = [...new Set(data.map(item => item[selectedType]).filter(x => x))];
+      values.forEach(val => {
         const option = document.createElement("option");
-        option.textContent = opt;
+        option.value = val;
+        option.textContent = val;
         dropdown.appendChild(option);
       });
-      dropdown.onchange = () => calculateMetrics(headers);
-      calculateMetrics(headers);
     }
 
-    function calculateMetrics(headers) {
-      const selection = document.getElementById("dropdown").value;
-      const filterType = document.querySelector("input[name='filter']:checked").value;
-      const nameIndex = headers.indexOf("Name of the customer");
-      const placeIndex = headers.indexOf("Place");
-      const invValIndex = headers.indexOf("Invoice Value");
-      const pendAmtIndex = headers.indexOf("Amount Pending");
-      const daysIndex = headers.indexOf("DAYS OF INVOICE");
+    function calculateMetrics() {
+      const selectedType = customerWiseCheckbox.checked ? "name" : regionWiseCheckbox.checked ? "region" : null;
+      const selectedValue = dropdown.value;
+      const filtered = data.filter(item => item[selectedType] === selectedValue);
 
-      let totalSales = 0, totalOS = 0, os90 = 0, os6090 = 0;
+      const totalSales = filtered.reduce((sum, r) => sum + r.invoiceValue, 0);
+      const totalOS = filtered.reduce((sum, r) => sum + r.pendingAmount, 0);
+      const os90 = filtered.filter(r => r.days > 90).reduce((sum, r) => sum + r.pendingAmount, 0);
+      const os60to90 = filtered.filter(r => r.days > 60 && r.days <= 90).reduce((sum, r) => sum + r.pendingAmount, 0);
+      const dso = totalSales > 0 ? Math.round((totalOS / totalSales) * 365) : 0;
 
-      const filtered = data.filter(row => {
-        const name = row[nameIndex]?.trim();
-        const place = row[placeIndex]?.trim();
-        return filterType === "region" ? place === selection : name === selection;
-      });
-
-      filtered.forEach(row => {
-        const inv = parseFloat(row[invValIndex]) || 0;
-        const os = parseFloat(row[pendAmtIndex]) || 0;
-        const days = parseInt(row[daysIndex]) || 0;
-        totalSales += inv;
-        totalOS += os;
-        if (days > 90) os90 += os;
-        else if (days > 60) os6090 += os;
-      });
-
-      const dso = totalSales ? ((totalOS / totalSales) * 365).toFixed(2) : 0;
-      document.getElementById("totalSales").textContent = totalSales.toLocaleString();
-      document.getElementById("totalOS").textContent = totalOS.toLocaleString();
-      document.getElementById("os90").textContent = os90.toLocaleString();
-      document.getElementById("os6090").textContent = os6090.toLocaleString();
-      document.getElementById("dso").textContent = dso;
+      document.getElementById("totalSales").textContent = `Total Sales Value: ₹${totalSales.toLocaleString()}`;
+      document.getElementById("totalOutstanding").textContent = `Total Outstanding: ₹${totalOS.toLocaleString()}`;
+      document.getElementById("os90").textContent = `90+ Days Outstanding: ₹${os90.toLocaleString()}`;
+      document.getElementById("os60to90").textContent = `60–90 Days Outstanding: ₹${os60to90.toLocaleString()}`;
+      document.getElementById("dso").textContent = `DSO: ${dso} days`;
     }
 
-    document.querySelectorAll("input[name='filter']").forEach(radio => {
-      radio.onchange = () => setupDropdown(["Name of the customer", "Place", "Invoice Value", "Amount Pending", "DAYS OF INVOICE"]);
+    customerWiseCheckbox.addEventListener("change", () => {
+      regionWiseCheckbox.checked = false;
+      updateDropdown();
     });
+    regionWiseCheckbox.addEventListener("change", () => {
+      customerWiseCheckbox.checked = false;
+      updateDropdown();
+    });
+    dropdown.addEventListener("change", calculateMetrics);
 
-    fetchData();
+    fetchCSV();
   </script></body>
 </html>
