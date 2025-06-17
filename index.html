@@ -1,111 +1,142 @@
 <!DOCTYPE html><html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Olive OS – Live Dashboard</title>
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f9f9f9;
       margin: 0;
       padding: 20px;
-      background: #f5f7fa;
       color: #333;
-    }
-    .dashboard {
-      max-width: 800px;
-      margin: auto;
-      background: white;
-      padding: 30px;
-      border-radius: 16px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
     }
     h1 {
       text-align: center;
-      color: #2e7d32;
+      color: #2a7a2e;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: #fff;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .checkbox-group {
+      display: flex;
+      justify-content: space-around;
       margin-bottom: 20px;
     }
-    label {
-      font-weight: bold;
-      display: block;
-      margin: 10px 0 5px;
-    }
-    .checkbox-container {
-      display: flex;
-      gap: 20px;
+    .dropdown {
       margin-bottom: 15px;
     }
-    .checkbox-container label {
-      font-weight: normal;
-    }
-    select, input[list] {
+    .dropdown input {
       width: 100%;
       padding: 10px;
-      margin-bottom: 20px;
-      border-radius: 8px;
       border: 1px solid #ccc;
-      font-size: 1rem;
+      border-radius: 5px;
     }
-    .metrics {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      margin-top: 20px;
+    .buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
     }
-    .metric {
-      background: #e8f5e9;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
-    }
-    .metric h3 {
-      margin: 0 0 10px;
-      color: #2e7d32;
-    }
-    .metric span {
-      font-size: 1.4rem;
+    .buttons button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
       font-weight: bold;
     }
+    .show-btn {
+      background-color: #2a7a2e;
+      color: white;
+    }
+    .clear-btn {
+      background-color: #ccc;
+      color: black;
+    }
+    .result {
+      margin-top: 15px;
+      padding: 10px;
+      background: #f1f1f1;
+      border-radius: 5px;
+    }
+    .result h3 {
+      margin: 10px 0;
+    }
     .red {
-      background: #ffebee !important;
-      color: #b71c1c !important;
+      color: red;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <div class="dashboard">
-    <h1>Olive OS – Live Dashboard</h1><div class="checkbox-container">
-  <label><input type="checkbox" id="customerWise" name="filterType" onchange="toggleSelection('customer')" /> Customer Wise</label>
-  <label><input type="checkbox" id="regionWise" name="filterType" onchange="toggleSelection('region')" /> Region Wise</label>
+  <div class="container">
+    <h1>Olive OS – Live Dashboard</h1><div class="checkbox-group">
+  <label><input type="radio" name="filterType" value="customer"> Customer Wise</label>
+  <label><input type="radio" name="filterType" value="region"> Region Wise</label>
 </div>
 
-<label for="userSelection">Select Name:</label>
-<input list="nameList" id="userSelection" name="userSelection" placeholder="Type to search...">
-<datalist id="nameList"></datalist>
-
-<div class="metrics">
-  <div class="metric">
-    <h3>Total Sale Value</h3>
-    <span id="totalSales">₹0</span>
-  </div>
-  <div class="metric">
-    <h3>Total Outstanding</h3>
-    <span id="totalOutstanding">₹0</span>
-  </div>
-  <div class="metric red">
-    <h3>90+ Days Outstanding</h3>
-    <span id="os90">₹0</span>
-  </div>
-  <div class="metric">
-    <h3>60–90 Days Outstanding</h3>
-    <span id="os60to90">₹0</span>
-  </div>
-  <div class="metric">
-    <h3>DSO (Days Sales Outstanding)</h3>
-    <span id="dso">0</span>
-  </div>
+<div class="dropdown">
+  <input list="options" id="selection" placeholder="Start typing to select...">
+  <datalist id="options"></datalist>
 </div>
+
+<div class="buttons">
+  <button class="show-btn" onclick="showResults()">Show</button>
+  <button class="clear-btn" onclick="clearFields()">Clear</button>
+</div>
+
+<div class="result" id="results"></div>
 
   </div>  <script>
-    // JavaScript fetching and logic should be here (already built)
+    const sampleData = {
+      customer: ['KKC Pharma', 'Green Poultry', 'FarmX', 'Avian Care'],
+      region: ['RM Hyderabad', 'Hyderabad', 'Karimnagar', 'Tanuku', 'Vijayawada']
+    };
+
+    document.querySelectorAll('input[name="filterType"]').forEach(el => {
+      el.addEventListener('change', populateOptions);
+    });
+
+    function populateOptions() {
+      const type = document.querySelector('input[name="filterType"]:checked').value;
+      const datalist = document.getElementById('options');
+      datalist.innerHTML = '';
+      sampleData[type].forEach(item => {
+        const option = document.createElement('option');
+        option.value = item;
+        datalist.appendChild(option);
+      });
+    }
+
+    function showResults() {
+      const selection = document.getElementById('selection').value;
+      const filterType = document.querySelector('input[name="filterType"]:checked')?.value;
+
+      if (!filterType || !selection) {
+        alert('Please select filter type and name.');
+        return;
+      }
+
+      // Simulated data output (replace with real fetch)
+      const html = `
+        <h3>Total Sale Value: ₹2,30,000</h3>
+        <h3>Total Outstanding: ₹85,000</h3>
+        <h3 class="red">90+ Days Outstanding: ₹15,000</h3>
+        <h3>60–90 Days Outstanding: ₹20,000</h3>
+        <h3>DSO: 135 Days</h3>
+      `;
+      document.getElementById('results').innerHTML = html;
+    }
+
+    function clearFields() {
+      document.getElementById('selection').value = '';
+      document.getElementById('results').innerHTML = '';
+      document.getElementById('options').innerHTML = '';
+      document.querySelectorAll('input[name="filterType"]').forEach(el => el.checked = false);
+    }
   </script></body>
 </html>
