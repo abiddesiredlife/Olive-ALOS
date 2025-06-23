@@ -1,115 +1,42 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Olive OS – Live Dashboard</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f0f4f7; padding: 20px; }
-    .box { max-width: 600px; margin: auto; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
-    h1 { text-align: center; color: #2e7d32; }
-    label { font-weight: bold; margin-right: 20px; }
-    input[type="text"] { width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; }
-    .buttons { display: flex; justify-content: space-between; }
-    button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-    .show { background: #2e7d32; color: white; }
-    .clear { background: #ccc; color: black; }
-    .result { margin-top: 20px; background: #e0f2f1; padding: 15px; border-radius: 8px; }
-    .result p { margin: 8px 0; }
-    .result .highlight { font-weight: bold; color: darkred; }
-    ul.suggestions { border: 1px solid #ccc; border-radius: 6px; max-height: 150px; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
-    ul.suggestions li { padding: 8px; cursor: pointer; }
-    ul.suggestions li:hover { background: #f0f0f0; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Olive OS – Live Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/selectize/dist/css/selectize.default.css" />
 </head>
-<body>
+<body class="bg-gray-100 font-sans">
+    <header class="bg-green-700 text-white p-4 text-center text-xl font-bold">
+        Olive OS – Live Dashboard
+    </header>
 
-  <div class="box">
-    <h1>Olive OS – Live Dashboard</h1>
-    
-    <div>
-      <label><input type="radio" name="view" value="customer" checked> Customer Wise</label>
-      <label><input type="radio" name="view" value="region"> Region Wise</label>
-    </div>
+    <main class="p-6">
+        <div class="bg-white p-4 rounded shadow-md mb-4">
+            <div class="flex flex-wrap items-center gap-4 mb-4">
+                <label><input type="checkbox" id="customerWise" checked> Customer Wise</label>
+                <label><input type="checkbox" id="regionWise"> Region Wise</label>
+                <select id="selector" class="border p-2 rounded w-64" placeholder="Type to search..."></select>
+                <button onclick="showData()" class="bg-green-600 text-white px-4 py-2 rounded">Show</button>
+                <button onclick="clearFields()" class="bg-gray-400 text-white px-4 py-2 rounded">Clear</button>
+            </div>
+            <div id="summary" class="space-y-2 text-lg"></div>
+        </div>
 
-    <input type="text" id="searchInput" placeholder="Type to search..." autocomplete="off"/>
-    <ul class="suggestions" id="suggestionsList"></ul>
+        <div class="overflow-auto">
+            <table id="dataTable" class="min-w-full table-auto bg-white rounded shadow-md">
+                <thead class="bg-green-200 text-gray-800">
+                    <tr></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </main>
 
-    <div class="buttons">
-      <button class="show" onclick="showData()">Show</button>
-      <button class="clear" onclick="clearAll()">Clear</button>
-    </div>
-
-    <div class="result" id="result" style="display:none;"></div>
-  </div>
-
-  <script>
-    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-vRAdDwX9qitwUOes0kHJDH7s1Xi35zEnjtNxvaAP2nz4vtYW3w35GFkaYN9uWg/pub?output=csv';
-    let DATA = [];
-
-    // Fetch CSV & store as objects
-    fetch(SHEET_URL).then(r => r.text()).then(text => {
-      const lines = text.trim().split('\\n');
-      const headers = lines[0].split(',');
-      DATA = lines.slice(1).map(r => {
-        const cols = r.split(',');
-        return {
-          customer: cols[1]?.trim(),
-          region: cols[2]?.trim(),
-          invoice: parseFloat(cols[6]) || 0,
-          pending: parseFloat(cols[7]) || 0,
-          days: parseInt(cols[5]) || 0
-        };
-      });
-    });
-
-    const input = document.getElementById('searchInput');
-    const list = document.getElementById('suggestionsList');
-
-    input.addEventListener('input', () => {
-      const view = document.querySelector('input[name="view"]:checked').value;
-      const term = input.value.toLowerCase();
-      const items = [...new Set(DATA.map(d => d[view]))].filter(v => v.toLowerCase().startsWith(term));
-      list.innerHTML = items.map(v => `<li onclick="selectIt('${v.replace(/'/g,"\\'")}')">${v}</li>`).join('');
-    });
-
-    function selectIt(v) {
-      input.value = v;
-      list.innerHTML = '';
-    }
-
-    input.onblur = () => setTimeout(() => list.innerHTML = '', 200);
-
-    function showData() {
-      const view = document.querySelector('input[name="view"]:checked').value;
-      const sel = input.value.trim();
-      const records = DATA.filter(d => d[view] === sel);
-      if (!sel || records.length === 0) { alert('Choose a valid ' + view); return; }
-
-      let sales=0, outstanding=0, os90=0, os60=0;
-      records.forEach(r => {
-        sales += r.invoice;
-        outstanding += r.pending;
-        if (r.days > 90) os90 += r.pending;
-        else if (r.days > 60) os60 += r.pending;
-      });
-      const dso = sales ? Math.round((outstanding/sales)*365) : 0;
-
-      document.getElementById('result').style.display = 'block';
-      document.getElementById('result').innerHTML = `
-        <p><strong>Total Sale Value:</strong> ₹${sales.toLocaleString()}</p>
-        <p><strong>Total Outstanding:</strong> ₹${outstanding.toLocaleString()}</p>
-        <p class="highlight"><strong>90+ Days Outstanding:</strong> ₹${os90.toLocaleString()}</p>
-        <p><strong>60–90 Days Outstanding:</strong> ₹${os60.toLocaleString()}</p>
-        <p><strong>DSO:</strong> ${dso} Days</p>
-      `;
-    }
-
-    function clearAll() {
-      input.value = '';
-      document.getElementById('result').style.display = 'none';
-    }
-  </script>
-
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/selectize/dist/js/standalone/selectize.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
