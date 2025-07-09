@@ -1,42 +1,193 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Olive OS – Live Dashboard</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/selectize/dist/css/selectize.default.css" />
+  <meta charset="UTF-8" />
+  <title>Olive OS – Live Dashboard</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <style>
+    body {
+      background-color: #f7f9fa;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-weight: bold;
+      color: #193549;
+    }
+    .highlight-red { color: darkred; font-weight: bold; }
+    .highlight-blue { color: #007bff; font-weight: bold; }
+    .card-box {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+    }
+    table th {
+      background-color: #e3f2fd;
+    }
+  </style>
 </head>
-<body class="bg-gray-100 font-sans">
-    <header class="bg-green-700 text-white p-4 text-center text-xl font-bold">
-        Olive OS – Live Dashboard
-    </header>
+<body>
+  <h2>Olive OS – Live Dashboard</h2>
 
-    <main class="p-6">
-        <div class="bg-white p-4 rounded shadow-md mb-4">
-            <div class="flex flex-wrap items-center gap-4 mb-4">
-                <label><input type="checkbox" id="customerWise" checked> Customer Wise</label>
-                <label><input type="checkbox" id="regionWise"> Region Wise</label>
-                <select id="selector" class="border p-2 rounded w-64" placeholder="Type to search..."></select>
-                <button onclick="showData()" class="bg-green-600 text-white px-4 py-2 rounded">Show</button>
-                <button onclick="clearFields()" class="bg-gray-400 text-white px-4 py-2 rounded">Clear</button>
-            </div>
-            <div id="summary" class="space-y-2 text-lg"></div>
-        </div>
+  <div class="card-box">
+    <div class="form-check form-check-inline">
+      <input class="form-check-input" type="radio" name="filterType" id="customerWise" value="customer" />
+      <label class="form-check-label" for="customerWise">Customer Wise</label>
+    </div>
+    <div class="form-check form-check-inline">
+      <input class="form-check-input" type="radio" name="filterType" id="regionWise" value="region" checked />
+      <label class="form-check-label" for="regionWise">Region Wise</label>
+    </div>
 
-        <div class="overflow-auto">
-            <table id="dataTable" class="min-w-full table-auto bg-white rounded shadow-md">
-                <thead class="bg-green-200 text-gray-800">
-                    <tr></tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </main>
+    <div class="row mt-3">
+      <div class="col-md-4">
+        <input list="dropdownList" id="filterInput" class="form-control" placeholder="Start typing..." />
+        <datalist id="dropdownList"></datalist>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-success w-100" onclick="filterData()">Show</button>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-secondary w-100" onclick="clearFilter()">Clear</button>
+      </div>
+    </div>
+  </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/selectize/dist/js/standalone/selectize.min.js"></script>
-    <script src="script.js"></script>
+  <div class="card-box" id="summaryBox" style="display: none;">
+    <p><strong>Total Invoice Value:</strong> ₹<span id="totalInvoice">0</span></p>
+    <p><strong>Total Outstanding:</strong> ₹<span id="totalOutstanding">0</span></p>
+    <p class="highlight-blue">60–90 Days OS: ₹<span id="os60_90">0</span></p>
+    <p class="highlight-red">90+ Days OS: ₹<span id="os90plus">0</span></p>
+    <p><strong>DSO:</strong> <span id="dso">0</span> days</p>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped" id="dataTable">
+      <thead class="table-light">
+        <tr>
+          <th>S.No.</th>
+          <th>Name of the customer</th>
+          <th>Place</th>
+          <th>Inv. No</th>
+          <th>Inv. Date</th>
+          <th>DAYS OF INVOICE</th>
+          <th>Invoice Value (₹)</th>
+          <th>Amount Pending (₹)</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    let rawData = [];
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRNiCrbDcdvLWK6R30tw4yPMUoKP-lwWyh2j5d6Hv84Hcba_JZIKPs7AKDU6AOASw/pub?output=csv";
+
+    function parseCSV(text) {
+      const lines = text.trim().split('\n').map(line => line.split(','));
+      const headers = lines[0];
+      return lines.slice(1).map(row => {
+        const obj = {};
+        row.forEach((val, i) => {
+          obj[headers[i].trim()] = val.trim();
+        });
+        return obj;
+      });
+    }
+
+    function loadDropdown(data, key) {
+      const uniqueValues = [...new Set(data.map(item => item[key]).filter(Boolean))].sort();
+      const list = document.getElementById("dropdownList");
+      list.innerHTML = "";
+      uniqueValues.forEach(val => {
+        const option = document.createElement("option");
+        option.value = val;
+        list.appendChild(option);
+      });
+    }
+
+    function filterData() {
+      const type = document.querySelector('input[name="filterType"]:checked').value;
+      const inputValue = document.getElementById("filterInput").value.trim();
+      const key = type === "customer" ? "Name of the customer" : "Place";
+      const filtered = rawData.filter(item => item[key] === inputValue);
+
+      const tbody = document.querySelector("#dataTable tbody");
+      tbody.innerHTML = "";
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center">No data found.</td></tr>`;
+        document.getElementById("summaryBox").style.display = "none";
+        return;
+      }
+
+      let totalInv = 0, totalOut = 0, os60_90 = 0, os90 = 0;
+
+      filtered.forEach((item, index) => {
+        const days = parseInt(item["DAYS OF INVOICE"] || "0", 10);
+        const invVal = parseFloat(item["Invoice Value (₹)"].replace(/[^0-9.]/g, "")) || 0;
+        const amtPend = parseFloat(item["Amount Pending (₹)"].replace(/[^0-9.]/g, "")) || 0;
+
+        totalInv += invVal;
+        totalOut += amtPend;
+        if (days >= 90) os90 += amtPend;
+        else if (days >= 60) os60_90 += amtPend;
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${index + 1}</td>
+          <td>${item["Name of the customer"]}</td>
+          <td>${item["Place"]}</td>
+          <td>${item["Inv. No"]}</td>
+          <td>${item["Inv. Date"]}</td>
+          <td>${days}</td>
+          <td>₹${invVal.toLocaleString()}</td>
+          <td>₹${amtPend.toLocaleString()}</td>
+          <td>${item["Status"] || ""}</td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById("totalInvoice").innerText = totalInv.toLocaleString();
+      document.getElementById("totalOutstanding").innerText = totalOut.toLocaleString();
+      document.getElementById("os60_90").innerText = os60_90.toLocaleString();
+      document.getElementById("os90plus").innerText = os90.toLocaleString();
+      document.getElementById("dso").innerText = totalInv > 0 ? ((totalOut / totalInv) * 365).toFixed(2) : "0.00";
+
+      document.getElementById("summaryBox").style.display = "block";
+    }
+
+    function clearFilter() {
+      document.getElementById("filterInput").value = "";
+      document.querySelector("#dataTable tbody").innerHTML = "";
+      document.getElementById("summaryBox").style.display = "none";
+    }
+
+    async function init() {
+      const response = await fetch(CSV_URL);
+      const text = await response.text();
+      rawData = parseCSV(text);
+
+      // Default load region-wise
+      loadDropdown(rawData, "Place");
+
+      // When filter type is changed
+      document.querySelectorAll('input[name="filterType"]').forEach(input => {
+        input.addEventListener('change', () => {
+          const key = input.value === "customer" ? "Name of the customer" : "Place";
+          loadDropdown(rawData, key);
+        });
+      });
+    }
+
+    init();
+  </script>
 </body>
 </html>
