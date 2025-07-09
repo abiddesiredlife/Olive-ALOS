@@ -4,48 +4,28 @@
   <meta charset="UTF-8">
   <title>Olive OS – Live Dashboard</title>
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #f4f7f9;
-      text-align: center;
-      padding: 30px;
-    }
-    h1 {
-      color: #223344;
-    }
-    input, select, button {
-      padding: 10px;
-      margin: 8px;
-      font-size: 16px;
-    }
-    .results {
-      margin-top: 30px;
-      font-size: 20px;
-    }
-    .blue { color: blue; }
-    .red { color: red; }
+    body { font-family: sans-serif; background: #f4f7f9; text-align: center; padding: 30px; }
+    h1 { color: #223344; }
+    input, select, button { padding: 8px; margin: 5px; font-size: 1rem; }
     .bold { font-weight: bold; }
+    .blue { color: blue; }
+    .red { color: darkred; }
+    .results { margin-top: 30px; font-size: 1.2rem; }
   </style>
 </head>
 <body>
-
   <h1>Olive OS – Live Dashboard</h1>
 
-  <label><input type="radio" name="type" value="customer" checked> Customer Wise</label>
-  <label><input type="radio" name="type" value="region"> Region Wise</label>
-  <br>
+  <label><input type="radio" name="mode" value="customer" checked> Customer Wise</label>
+  <label><input type="radio" name="mode" value="region"> Region Wise</label><br>
 
-  <input type="text" id="searchBox" placeholder="Type customer or region..." list="nameList">
+  <input list="nameList" id="searchBox" placeholder="Start typing..." autocomplete="off">
   <datalist id="nameList"></datalist>
 
   <select id="yearSelect">
     <option value="All">All Years</option>
-    <option value="2018-19">2018-19</option>
-    <option value="2019-20">2019-20</option>
-    <option value="2020-21">2020-21</option>
-    <option value="2021-22">2021-22</option>
-    <option value="2022-23">2022-23</option>
-    <option value="2023-24">2023-24</option>
+    <option>2018-19</option><option>2019-20</option><option>2020-21</option>
+    <option>2021-22</option><option>2022-23</option><option>2023-24</option>
   </select>
 
   <button onclick="showResults()">Show</button>
@@ -55,90 +35,76 @@
 
   <script>
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRNiCrbDcdvLWK6R30tw4yPMUoKP-lwWyh2j5d6Hv84Hcba_JZIKPs7AKDU6AOASw/pub?output=csv";
-    let rawData = [];
-
-    // Load CSV and parse
-    async function fetchCSV() {
-      const response = await fetch(CSV_URL);
-      const text = await response.text();
-      const rows = text.split('\n').map(r => r.split(','));
-      const headers = rows[0];
-      rawData = rows.slice(1).map(r => {
-        let obj = {};
-        headers.forEach((h, i) => obj[h.trim()] = r[i]?.trim());
-        return obj;
+    let raw = [];
+    fetch(CSV_URL)
+      .then(r => r.text())
+      .then(t => {
+        const rows = t.trim().split("\\n").map(r => r.split(","));
+        const h = rows.shift();
+        raw = rows.map(r => {
+          let o = {};
+          h.forEach((col,i) => o[col.trim()] = (r[i]||"").trim());
+          return o;
+        });
+        fillList();
       });
-      populateNameList();
-    }
 
-    // Populate customer or region list
-    function populateNameList() {
-      const list = document.getElementById("nameList");
-      list.innerHTML = '';
-      const type = document.querySelector('input[name="type"]:checked').value;
-      const key = type === 'customer' ? 'Name of the customer' : 'Place';
-      const unique = [...new Set(rawData.map(d => d[key]).filter(Boolean))];
-      unique.sort().forEach(name => {
-        const option = document.createElement("option");
-        option.value = name;
-        list.appendChild(option);
+    document.querySelectorAll('input[name="mode"]').forEach(r=> r.onchange = fillList);
+
+    function fillList(){
+      const mode = document.querySelector('input[name="mode"]:checked').value;
+      const key = mode==="customer" ? "Name of the customer" : "Place";
+      const set = new Set(raw.map(r=>r[key]).filter(v=>v));
+      const dl = document.getElementById("nameList");
+      dl.innerHTML = "";
+      [...set].sort().forEach(v=>{
+        const o = document.createElement("option");
+        o.value = v; dl.appendChild(o);
       });
     }
 
-    // Show results
-    function showResults() {
-      const searchVal = document.getElementById("searchBox").value.trim().toUpperCase();
+    function showResults(){
+      const mode = document.querySelector('input[name="mode"]:checked').value;
+      const key = mode==="customer" ? "Name of the customer" : "Place";
+      const name = document.getElementById("searchBox").value.trim();
       const year = document.getElementById("yearSelect").value;
-      const type = document.querySelector('input[name="type"]:checked').value;
-      const key = type === 'customer' ? 'Name of the customer' : 'Place';
-
-      const filtered = rawData.filter(row =>
-        row[key]?.toUpperCase() === searchVal &&
-        (year === 'All' || row['FY'] === year)
+      const filtered = raw.filter(r =>
+        r[key] === name &&
+        (year==="All" || r["FY"] === year)
       );
 
-      if (filtered.length === 0) {
-        document.getElementById("output").innerHTML = "<p>No data found.</p>";
-        return;
+      if(filtered.length === 0){
+        return document.getElementById("output").innerHTML = "<p>No data found.</p>";
       }
 
-      let totalInvoice = 0, totalOS = 0, os60_90 = 0, os90 = 0;
-
-      filtered.forEach(row => {
-        const inv = parseInt(row['Invoice Value']?.replace(/,/g, '')) || 0;
-        const os = parseInt(row['Pending Amount']?.replace(/,/g, '')) || 0;
-        totalInvoice += inv;
-        totalOS += os;
-
-        const days = parseInt(row['Days'] || '0');
-        if (days >= 60 && days < 90) os60_90 += os;
-        else if (days >= 90) os90 += os;
+      let totInv=0, totOS=0, os60=0, os90=0, sumDays=0;
+      filtered.forEach(r=>{
+        const inv = parseInt((r["Invoice Value"]||"0").replace(/,/g,"")) || 0;
+        const os = parseInt((r["Amount Pending"]||"0").replace(/,/g,"")) || 0;
+        const days = parseInt(r["DAYS OF INVOICE"]||"0") || 0;
+        totInv += inv;
+        totOS += os;
+        sumDays += days;
+        if(days>=90) os90 += os;
+        else if(days>=60) os60 += os;
       });
 
-      const DSO = totalInvoice > 0 ? ((totalOS / totalInvoice) * 365).toFixed(2) : 0;
+      const dso = (totInv > 0) ? ((totOS / totInv) * 365).toFixed(2) : 0;
 
       document.getElementById("output").innerHTML = `
-        <p class="bold">Total Invoice Value: ₹${totalInvoice.toLocaleString()}</p>
-        <p class="bold">Total Outstanding: ₹${totalOS.toLocaleString()}</p>
-        <p class="blue bold">60–90 Days OS: ₹${os60_90.toLocaleString()}</p>
-        <p class="red bold">90+ Days OS: ₹${os90.toLocaleString()}</p>
-        <p class="bold">DSO: ${DSO} days</p>
+        <p class="bold">Total Invoice: ₹${totInv.toLocaleString()}</p>
+        <p class="bold">Total Outstanding: ₹${totOS.toLocaleString()}</p>
+        <p class="blue bold">60–90 Days OS: ₹${os60.toLocaleString()}</p>
+        <p class="red bold">90+ Days OS: ₹${os90.toLocaleString()}</p>
+        <p class="bold">DSO: ${dso} days</p>
       `;
     }
 
-    function clearResults() {
-      document.getElementById("searchBox").value = '';
-      document.getElementById("yearSelect").value = 'All';
-      document.getElementById("output").innerHTML = '';
+    function clearResults(){
+      document.getElementById("searchBox").value = "";
+      document.getElementById("yearSelect").value = "All";
+      document.getElementById("output").innerHTML = "";
     }
-
-    // Events
-    document.querySelectorAll('input[name="type"]').forEach(r => {
-      r.addEventListener('change', populateNameList);
-    });
-
-    fetchCSV();
   </script>
-
 </body>
 </html>
